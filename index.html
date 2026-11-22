@@ -25,6 +25,7 @@ button{background:var(--ac);color:#14110a;border:0;border-radius:10px;padding:14
  <div class="tact">
   <button class="tb" id="tmap">Map</button>
   <button class="tb" id="tflash">Light</button>
+  <button class="tb" id="tglow">Glow</button>
   <button class="tb" data-k="ShiftLeft">Run</button>
   <button class="tb" data-k="Space">Jump</button>
  </div>
@@ -900,7 +901,7 @@ function hud(){const t='Explored '+Math.round(seen.size/(N*N)*100)+'%';
    mStr=' | Monster: '+Math.round(nm.d)+'m ('+dir+')';
   }
  }
- document.getElementById('hud').textContent=lname()+' | '+t+(flashOn?' | Light ON':'')+mStr+gStr+(pm>0?' | Pitfall!':'')}
+ const aStr=(almondCount?' | Almond '+almondCount+'/12':'')+(boostT>0?' | BOOST '+Math.ceil(boostT)+'s':'');document.getElementById('hud').textContent=lname()+' | '+t+aStr+(flashOn?' | Light ON':'')+mStr+gStr+(pm>0?' | Pitfall!':'')}
 const hit=p=>{const gs=groundAt(p.x,p.z,rig.position.y);if((p.y<=gs+.06&&p.y>=gs-.25)||p.y>ceilAt(p.x,p.z)-.05)return true;
  for(const b of boxes)if(p.x>b.x0-.06&&p.x<b.x1+.06&&p.y>b.y0-.06&&p.y<b.y1+.06&&p.z>b.z0-.06&&p.z<b.z1+.06)return true;return false};
 const head=()=>new THREE.Vector3().copy(camera.position).applyQuaternion(rig.quaternion).add(rig.position);
@@ -912,7 +913,7 @@ function sticks(dt){
  if(L){const mp=L.buttons.slice(6).some(b=>b.pressed)||!!(L.buttons[3]&&L.buttons[3].pressed);if(mp&&!mbt)toggleMap();mbt=mp}
  if(L){const[x,y]=ax(L);
   if(Math.hypot(x,y)>.15){const f=new THREE.Vector3();camera.getWorldDirection(f);f.y=0;f.normalize();
-   const sp=(R&&R.buttons[4]&&R.buttons[4].pressed)?5.5:2.4;
+   const sp=((R&&R.buttons[4]&&R.buttons[4].pressed)?5.5:2.4)*(boostT>0?1.35:1);
    rig.position.addScaledVector(f,-y*sp*dt).addScaledVector(new THREE.Vector3(-f.z,0,f.x),x*sp*dt)}
   const xp=L.buttons[4]&&L.buttons[4].pressed;if(xp&&!xb)toggleFlash();xb=xp;
   const yp=L.buttons[5]&&L.buttons[5].pressed;
@@ -920,6 +921,8 @@ function sticks(dt){
  if(R){const[x]=ax(R);
   if(Math.abs(x)>.7&&!snap){snap=true;const hb=head();rig.rotation.y-=Math.sign(x)*Math.PI/6;rig.position.add(hb.sub(head()))}
   else if(Math.abs(x)<.3)snap=false;
+  const gp=R.buttons[1]&&R.buttons[1].pressed;if(gp&&!gb)dropGlowstick();gb=gp;
+  const hpBtn=!mapOn&&R.buttons[0]&&R.buttons[0].pressed;if(hpBtn&&!hb)honkEmote();hb=hpBtn;
   const bp=R.buttons[5]&&R.buttons[5].pressed;
   const gy=groundAt(head().x,head().z,rig.position.y)+floorY;if(bp&&!jb&&rig.position.y<=gy+.05)vel.y=5;jb=bp}}
 function bodyCollide(){const hp=head();
@@ -957,8 +960,8 @@ addEventListener('pointermove',e=>{if(!desk)return;if(e.pointerId===lookId){cons
 addEventListener('pointerup',e=>{if(e.pointerId===lookId)lookId=null});
 addEventListener('pointercancel',e=>{if(e.pointerId===lookId)lookId=null});
 document.querySelectorAll('#touchUI [data-k]').forEach(b=>{const k=b.dataset.k;const set=v=>{keys[k]=v;b.style.background=v?'rgba(232,197,71,.35)':'rgba(20,17,10,.65)'};b.addEventListener('pointerdown',e=>{e.preventDefault();set(1)});b.addEventListener('pointerup',()=>set(0));b.addEventListener('pointercancel',()=>set(0));b.addEventListener('pointerleave',()=>set(0))});
-document.getElementById('tmap').addEventListener('click',()=>toggleMap());document.getElementById('tflash').addEventListener('click',()=>toggleFlash());
-function deskMove(dt){const y=camera.rotation.y,sp=(keys.ShiftLeft?7:4)*dt,f=(keys.KeyW?1:0)-(keys.KeyS?1:0),r=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+document.getElementById('tmap').addEventListener('click',()=>toggleMap());document.getElementById('tflash').addEventListener('click',()=>toggleFlash());document.getElementById('tglow').addEventListener('click',()=>dropGlowstick());
+function deskMove(dt){const y=camera.rotation.y,sp=(keys.ShiftLeft?7:4)*(boostT>0?1.35:1)*dt,f=(keys.KeyW?1:0)-(keys.KeyS?1:0),r=(keys.KeyD?1:0)-(keys.KeyA?1:0);
  rig.position.x+=(-Math.sin(y)*f+Math.cos(y)*r)*sp;rig.position.z+=(-Math.cos(y)*f-Math.sin(y)*r)*sp;
  const hp=head(),gy=groundAt(hp.x,hp.z,rig.position.y);if(keys.Space&&rig.position.y<=gy+.05)vel.y=5;vel.y-=9.8*dt;rig.position.y=Math.max(gy,rig.position.y+vel.y*dt);if(rig.position.y<=gy)vel.y=0;bodyCollide()}
 function hum(){return;if(audio)return;audio=true;try{const a=new AudioContext(),g=a.createGain();g.gain.value=.04;g.connect(a.destination);
@@ -973,7 +976,7 @@ const mapRay=new THREE.Raycaster();
 const ZN=['Level 0: Pillar Halls','Level 1: Hallways','Level 2: Rooms','Retro Apartment','The Mall','The Dark Lobby','Apartment Forecourt','The Jail','The Pink House','Red Backrooms','The Neighborhood','The Poolrooms','Long Hallways','The Grand Hall','The Warehouse','Hotel Corridors','A Liminal Space'],ZS=['Halls','Hallways','Rooms','Apartment','Mall','Dark Lobby','Forecourt','Jail','Pink House','Red Backrooms','Neighborhood','Poolrooms','Long Halls','Grand Hall','Warehouse','Hotel','Liminal Space'],ZC=['#6b5f2a','#5a5a3a','#3f5a5a','#5a3a3a','#6a6a66','#2a2420','#4a3a3a','#5a4236','#2a4a68','#7a2e26','#7a7444','#2e7c82','#786b32','#8a8068','#4c5252','#6e2a2a','#5a564c'];
 const lname=()=>{const h=head();if(h.x<-A)return 'The Threshold';if(h.z<-A&&h.x>=0&&h.x<=24)return 'Pink House Grounds';return ZN[ZT[zi(h.x)][zi(h.z)]]};
 function toggleMap(){mapOn=!mapOn;mpl.visible=mapOn;if(!renderer.xr.isPresenting)MC.style.display=mapOn?'block':'none'}
-addEventListener('keydown',e=>{if(e.code==='KeyM')toggleMap();if(e.code==='KeyX')toggleFlash()});
+addEventListener('keydown',e=>{if(e.code==='KeyM')toggleMap();if(e.code==='KeyX')toggleFlash();if(e.code==='KeyG')dropGlowstick();if(e.code==='KeyH')honkEmote()});
 const zl=[[1,0x2a2410,26],[1,0x2a2410,26],[1,0x2a2410,26],[1,0x2a2410,26],[1.2,0x5b574a,30],[.28,0x070605,13],[1,0x2a2410,26],[.85,0x1e1812,26],[.75,0x0b1822,28],[1.15,0x2a221c,28],[1.15,0x3a3622,34],[1.25,0x88bfc4,36],[1,0x2a2410,28],[1.15,0x484438,40],[.8,0x1c1e1e,26],[.9,0x261414,26],[1.0,0x22201c,28]].map(a=>[a[0],new THREE.Color(a[1]),a[2]]);
 const zlThresh=[.95,new THREE.Color(0x242220),26];
 function ambience(hp,dt){const T=hp.x<-A?zlThresh:zl[ZT[zi(hp.x)][zi(hp.z)]],k=Math.min(1,dt*1.5);hemi.intensity+=(T[0]-hemi.intensity)*k;scene.fog.color.lerp(T[1],k);scene.background.lerp(T[1],k);scene.fog.far+=(T[2]-scene.fog.far)*k}
@@ -1604,6 +1607,8 @@ function applyRemotePacket(d){
   if(monsters[0]&&d.length>=6){monsters[0].group.position.set(d[3],d[4],d[5]);monsters[0].group.rotation.y=d[6]||0}
   return;
  }
+ if(d[0]==='g'&&d[1]!==mpMyId){spawnGlowstickAt(d[2],d[3],d[4],d[5]);return}
+ if(d[0]==='h'&&d[1]!==mpMyId){playHonkSound(.09);return}
  if(d[0]==='bye'){
   const r=mpRemotes.get(d[1]);if(r){scene.remove(r.root);mpRemotes.delete(d[1]);mpPeers.delete(d[1])}
   return;
@@ -1699,13 +1704,94 @@ function updateMultiplayer(dt){
  }catch(e){}
 }
 
+
+// === EXTRAS: ALMOND WATER COLLECTIBLES, THROWABLE GLOWSTICKS, HEARTBEAT AUDIO, HONK EMOTE & GRAND HALL BEACON ===
+let boostT=0,almondCount=0,gb=false,hb=false,beatT=0,glowIdx=0;
+const GLOW_COLS=[0x00f5ff,0x39ff14,0xff2bd6,0xffd700];
+const glowsticks=[];
+const glowLight=new THREE.PointLight(0x00f5ff,1.4,11);glowLight.visible=false;scene.add(glowLight);
+function playHonkSound(vol){
+ try{const a=new AudioContext(),g=a.createGain(),o=a.createOscillator();o.type='triangle';
+  o.frequency.setValueAtTime(520,a.currentTime);o.frequency.exponentialRampToValueAtTime(760,a.currentTime+.09);o.frequency.exponentialRampToValueAtTime(440,a.currentTime+.2);
+  g.gain.setValueAtTime(vol||.14,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.22);
+  o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+.24)}catch(e){}
+}
+function playAlmondSound(){
+ try{const a=new AudioContext(),g=a.createGain();g.gain.setValueAtTime(.14,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.45);g.connect(a.destination);
+  [523,659,784,1046].forEach((f,i)=>{const o=a.createOscillator();o.type='sine';o.frequency.setValueAtTime(f,a.currentTime+i*.06);o.connect(g);o.start(a.currentTime+i*.06);o.stop(a.currentTime+i*.06+.18)})}catch(e){}
+}
+function playHeartbeat(intense){
+ try{const a=new AudioContext(),g=a.createGain();
+  [0,.16].forEach((off,i)=>{
+   const o=a.createOscillator();o.type='sine';
+   o.frequency.setValueAtTime(i?52:64,a.currentTime+off);o.frequency.exponentialRampToValueAtTime(28,a.currentTime+off+.12);
+   g.gain.setValueAtTime(.01+intense*.18,a.currentTime+off);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+off+.14);
+   o.connect(g);o.start(a.currentTime+off);o.stop(a.currentTime+off+.15);
+  });g.connect(a.destination)}catch(e){}
+}
+function honkEmote(){
+ playHonkSound(.14);
+ if(mpPeer&&mpPeer.connected&&srvCode){try{mpPeer.publish('brwvr/r/'+srvCode,JSON.stringify(['h',mpMyId]))}catch(e){}}
+}
+function spawnGlowstickAt(x,y,z,col){
+ const m=new THREE.Mesh(new THREE.CylinderGeometry(.024,.024,.34,8),new THREE.MeshBasicMaterial({color:col}));
+ m.position.set(x,y,z);m.rotation.set(Math.PI/2,Math.random()*6.28,0);scene.add(m);
+ glowsticks.push(m);
+ if(glowsticks.length>16){const old=glowsticks.shift();scene.remove(old)}
+ glowLight.color.setHex(col);glowLight.position.set(x,y+.35,z);glowLight.visible=true;
+}
+function dropGlowstick(){
+ const h=head(),fw=new THREE.Vector3();camera.getWorldDirection(fw);fw.y=0;fw.normalize();
+ const gx=Math.max(-88,Math.min(A-1,h.x+fw.x*1.1)),gz=Math.max(-90,Math.min(A-1,h.z+fw.z*1.1));
+ const gy=groundAt(gx,gz,rig.position.y)+.05,col=GLOW_COLS[glowIdx++%GLOW_COLS.length];
+ spawnGlowstickAt(gx,gy,gz,col);
+ if(mpPeer&&mpPeer.connected&&srvCode){try{mpPeer.publish('brwvr/r/'+srvCode,JSON.stringify(['g',mpMyId,+gx.toFixed(2),+gy.toFixed(2),+gz.toFixed(2),col]))}catch(e){}}
+}
+// 12 Almond Water Bottles placed across the world (collect for 10s +35% speed boost!)
+const almondBottles=[];
+{
+ const spots=[[-58,-58],[-36,-54],[-12,-36],[12,-60],[36,-60],[60,-60],[-36,-12],[-60,12],[-36,12],[12,12],[36,12],[60,36]];
+ const bMat=new THREE.MeshBasicMaterial({color:0x67e8f9}),capMat=new THREE.MeshBasicMaterial({color:0xe8c547});
+ spots.forEach(([ax,az])=>{
+  const g=new THREE.Group();
+  const base=new THREE.Mesh(C(.16,.06),M(0x2a241c));base.position.y=.03;g.add(base);
+  const bot=new THREE.Mesh(C(.09,.32),bMat);bot.position.y=.24;g.add(bot);
+  const cap=new THREE.Mesh(C(.05,.08),capMat);cap.position.y=.44;g.add(cap);
+  g.position.set(ax,0,az);scene.add(g);
+  almondBottles.push({g,x:ax,z:az,got:false});
+ });
+}
+// Rotating golden beacon ring atop the Grand Hall obelisk (x=36, z=12, y=4.8)
+const ghBeacon=new THREE.Mesh(new THREE.TorusGeometry(.7,.08,8,20),new THREE.MeshBasicMaterial({color:0xfacc15}));
+ghBeacon.position.set(36,4.85,12);scene.add(ghBeacon);
+function updateExtras(dt){
+ const t=performance.now()*.001,hp=head();
+ ghBeacon.rotation.y=t*1.4;ghBeacon.rotation.x=Math.sin(t)*.35;
+ if(boostT>0)boostT=Math.max(0,boostT-dt);
+ almondBottles.forEach(b=>{
+  if(b.got)return;
+  b.g.children[1].rotation.y=t*2;
+  if(Math.hypot(hp.x-b.x,hp.z-b.z)<1.15&&Math.abs(hp.y-1.2)<2.2){
+   b.got=true;b.g.visible=false;almondCount++;boostT=10;playAlmondSound();
+  }
+ });
+ // Monster proximity heartbeat audio when Monsters Mode is ON
+ if(monsterMode&&monsters[0]&&hp.x>-A){
+  const md=Math.hypot(monsters[0].group.position.x-hp.x,monsters[0].group.position.z-hp.z);
+  if(md<22){
+   const intense=Math.max(0,1-md/22),interval=1.05-intense*.68;
+   beatT+=dt;if(beatT>=interval){beatT=0;playHeartbeat(intense)}
+  }else beatT=0;
+ }
+}
+
 const clock=new THREE.Clock();
 renderer.setAnimationLoop(()=>{
  const dt=Math.min(clock.getDelta(),.05);
  if(renderer.xr.isPresenting){if(!calDone){const h0=hands[0].c.position.y,h1=hands[1].c.position.y;if(h0>.05||h1>.05){calT+=dt;if(calT>.35){calDone=true;const mh=h0>.05&&h1>.05?Math.min(h0,h1):Math.max(h0,h1);floorY=Math.max(-2.0,Math.min(1.5,.04-mh));rig.position.y=groundAt(head().x,head().z,rig.position.y)+floorY}}}move(dt)}else if(desk)deskMove(dt);
  checkPits();if(pm>0)pm-=dt;const hp=head();seen.add(Math.floor((hp.x+A)/CS)*N+Math.floor((hp.z+A)/CS));
  lm.forEach(m=>m.color.setHex(Math.random()<.02?0x5a5030:0xfff5b0));
- updatePlayerModel(dt);if(!mpPeer||mpHostMode)updateMonsters(dt);updateMultiplayer(dt);ambience(hp,dt);
+ updatePlayerModel(dt);if(!mpPeer||mpHostMode)updateMonsters(dt);updateMultiplayer(dt);updateExtras(dt);ambience(hp,dt);
  const rc=new THREE.Color().setHSL((performance.now()*.00025)%1,1,.55);rgbMat.color.copy(rc);rgbLight.color.copy(rc);nbFans.forEach(f=>f.rotation.y+=dt*1.1);
  if(hp.x<-A+4){
   const wp=new THREE.Vector3(),wd=new THREE.Vector3();
