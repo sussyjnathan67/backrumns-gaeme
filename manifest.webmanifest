@@ -1,0 +1,25 @@
+{
+  "name": "Liminal Monke",
+  "short_name": "Liminal Monke",
+  "description": "Peaceful endless Backrooms Level 0 VR with Gorilla Tag locomotion and multiplayer rooms.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#121007",
+  "theme_color": "#121007",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
